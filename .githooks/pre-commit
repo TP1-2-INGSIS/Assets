@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Pre-commit hook: runs the formatter/linter (checkstyle) before allowing a commit.
+# Enable it once with:  git config core.hooksPath .githooks
+#
+
+set -e
+
+echo "Running checkstyle (linter/formatter)..."
+./gradlew checkstyleMain checkstyleTest --daemon
+
+echo "Pre-commit checks passed."
