@@ -16,6 +16,10 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/assets
       - SPRING_DATASOURCE_USERNAME=assets
       - SPRING_DATASOURCE_PASSWORD=assets
+      # Agregado para el monitoreo con New Relic
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NEW_RELIC_APP_NAME=assets
+    
     depends_on:
       - azurite
       - postgres

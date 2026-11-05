@@ -13,7 +13,7 @@ COPY src src
 RUN chmod +x ./gradlew && ./gradlew bootJar --no-daemon
 
 # ---- Run stage ----
-FROM eclipse-temurin:21-jre
+FROM ghcr.io/tp1-2-ingsis/monitoring-config:latest
 WORKDIR /app
 
 COPY --from=build /workspace/build/libs/*.jar app.jar
