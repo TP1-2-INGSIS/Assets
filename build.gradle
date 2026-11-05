@@ -22,9 +22,17 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+	// Azure Blob Storage SDK — usado SOLO por el adaptador en storage/azure.
+	// El resto del servicio depende de la interfaz BlobStorage, no de Azure.
+	implementation 'com.azure:azure-storage-blob:12.36.0'
+
+	runtimeOnly 'org.postgresql:postgresql'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
 }
 
 tasks.named('test') {

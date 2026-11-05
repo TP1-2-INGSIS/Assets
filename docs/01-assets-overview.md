@@ -35,42 +35,46 @@ lógica de dominio (formatear, lintear, ejecutar) vive en otros servicios.
 La DB **no** guarda el contenido del snippet, solo lo necesario para
 localizar el blob:
 
-- `id` (UUID) — clave que exponemos al resto de servicios
+- `snippetId` (UUID) — identificador del snippet que Assets recibe en cada
+  petición y persiste en su propia tabla. Es la clave por la que Assets localiza
+  el blob.
 - `container` / `blobName` — ubicación real dentro de Azure Blob
 - `contentType`, `size`, `createdAt`, `updatedAt` — metadata opcional
 
-> Nota: para un servicio de almacenamiento puro, la DB es opcional. Si el `id`
-> coincide 1:1 con el nombre del blob, se puede prescindir de la DB y usar el
-> propio contenedor como índice. Mantener la DB aporta metadata, auditoría y
-> desacopla el esquema de nombres de blobs del ID público.
+> **Dueño del almacenamiento: Assets.** Snippets no gestiona el esquema de
+> blobs ni la DB de Assets; solo hace pedidos HTTP pasando el `snippetId`.
+> Assets es quien guarda los `snippetId` en su propia base de datos y resuelve,
+> a partir de ellos, dónde está el blob.
 
 ## API propuesta
 
-Un contrato REST mínimo, centrado en operaciones por ID:
+Un contrato REST mínimo, centrado en operaciones por `snippetId` (UUID):
 
-| Método | Ruta                 | Descripción                                   |
-|--------|----------------------|-----------------------------------------------|
-| `POST` | `/v1/assets`         | Sube un blob. Devuelve `{ "id": "<uuid>" }`.  |
-| `GET`  | `/v1/assets/{id}`    | Descarga el contenido del blob por ID.        |
-| `PUT`  | `/v1/assets/{id}`    | Reemplaza el contenido de un blob existente.  |
-| `DELETE`| `/v1/assets/{id}`   | Borra el blob y su referencia en DB.          |
+| Método   | Ruta                       | Descripción                                        |
+|----------|----------------------------|----------------------------------------------------|
+| `POST`   | `/v1/assets/{snippetId}`   | Sube/crea el blob para ese `snippetId`.            |
+| `GET`    | `/v1/assets/{snippetId}`   | Descarga el contenido del blob por `snippetId`.    |
+| `PUT`    | `/v1/assets/{snippetId}`   | Reemplaza el contenido de un blob existente.       |
+| `DELETE` | `/v1/assets/{snippetId}`   | Borra el blob y su referencia en DB.               |
 
 - El cuerpo puede ser `text/plain` (el código del snippet) o binario.
-- La respuesta de `POST` devuelve **solo el ID**; el llamador (Snippets) guarda
-  ese ID en su propio dominio para asociarlo a su entidad de negocio.
+- El `snippetId` lo provee el llamador (Snippets) en la ruta; Assets lo
+  **persiste en su propia DB** y lo usa para localizar el blob. Snippets no
+  necesita conocer la ubicación interna del blob: solo el `snippetId`.
 
 ## Flujo de ejemplo
 
-1. **Snippets** recibe un snippet nuevo del usuario.
-2. Snippets hace `POST /v1/assets` con el contenido → Assets lo guarda como blob
-   y responde `{ "id": "abc-123" }`.
-3. Snippets guarda `abc-123` en su propia tabla, junto al resto de datos de
-   negocio (autor, nombre, lenguaje, permisos…).
-4. Más tarde, **Language** necesita el código para lintearlo: pide a Snippets
-   (o directamente) el `id`, y hace `GET /v1/assets/abc-123` → recibe el
-   contenido crudo.
+1. **Snippets** recibe un snippet nuevo del usuario y le asigna un `snippetId`
+   (UUID).
+2. Snippets hace `POST /v1/assets/{snippetId}` con el contenido → Assets guarda
+   el blob y **registra el `snippetId` en su propia DB**.
+3. Snippets mantiene su entidad de negocio (autor, nombre, lenguaje, permisos…);
+   no necesita guardar ninguna ubicación de blob, solo el `snippetId` que ya
+   conoce.
+4. Más tarde, **Language** necesita el código para lintearlo: obtiene el
+   `snippetId` y hace `GET /v1/assets/{snippetId}` → recibe el contenido crudo.
 5. Language procesa el contenido; si genera una versión formateada, puede
-   hacer `PUT /v1/assets/abc-123` o crear un nuevo asset.
+   hacer `PUT /v1/assets/{snippetId}`.
 
 ## Límites de responsabilidad (lo que Assets NO hace)
 

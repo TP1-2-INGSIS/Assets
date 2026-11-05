@@ -12,8 +12,13 @@ services:
       # Conexión a Azurite dentro de la red de compose (host = nombre del servicio)
       - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
       - AZURE_STORAGE_CONTAINER=snippets
+      # Conexión a PostgreSQL dentro de la red de compose (host = nombre del servicio)
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/assets
+      - SPRING_DATASOURCE_USERNAME=assets
+      - SPRING_DATASOURCE_PASSWORD=assets
     depends_on:
       - azurite
+      - postgres
     restart: unless-stopped
 
   azurite:
@@ -26,5 +31,19 @@ services:
       - azurite-data:/data
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16
+    container_name: assets-postgres
+    environment:
+      - POSTGRES_DB=assets
+      - POSTGRES_USER=assets
+      - POSTGRES_PASSWORD=assets
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
 volumes:
   azurite-data:
+  postgres-data:
