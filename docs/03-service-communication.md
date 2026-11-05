@@ -7,27 +7,28 @@ sus ventajas e inconvenientes para elegir con criterio.
 
 | Servicio     | Responsabilidad                                            | Relación con Assets                |
 |--------------|------------------------------------------------------------|------------------------------------|
-| **Snippets** | Gestiona el dominio de negocio del snippet (autor, permisos, nombre, lenguaje). | **Escribe**: sube el contenido y guarda el ID. |
-| **Assets**   | Almacena el contenido como blob y devuelve un ID.          | Es el almacén.                     |
-| **Language** | Formatea, lintea y ejecuta el código del snippet.          | **Lee**: baja el contenido por ID. |
+| **Snippets** | Gestiona el dominio de negocio del snippet (autor, permisos, nombre, lenguaje). | **Escribe**: envía `snippetId` + contenido. |
+| **Assets**   | Almacena el contenido como blob y registra el `snippetId` en su propia DB. | Es el almacén y dueño del índice.  |
+| **Language** | Formatea, lintea y ejecuta el código del snippet.          | **Lee**: baja el contenido por `snippetId`. |
 
-Idea clave: **Snippets es el dueño del ID del asset.** Language no inventa IDs;
-los recibe (de Snippets) y los usa para leer de Assets.
+Idea clave: **Assets es el dueño de su propio índice.** Snippets solo hace
+pedidos pasando el `snippetId`; no conoce ni gestiona el esquema de blobs ni la
+DB de Assets. Language tampoco inventa IDs: usa el `snippetId` para leer de
+Assets.
 
 ```
 Usuario
   │
   ▼
-┌──────────┐  1. POST contenido        ┌──────────┐
-│ Snippets │ ────────────────────────▶ │  Assets  │ ──▶ Azure Blob
-│          │ ◀──────────────────────── │          │
-└──────────┘     { id }                 └──────────┘
-  │  guarda id en su DB                      ▲
-  │                                          │ 3. GET /v1/assets/{id}
-  │  2. entrega id a Language                │
-  ▼                                          │
-┌──────────┐                                 │
-│ Language │ ────────────────────────────────┘
+┌──────────┐  1. POST /v1/assets/{snippetId}   ┌──────────┐
+│ Snippets │ ────────────────────────────────▶ │  Assets  │ ──▶ Azure Blob
+│          │ ◀──────────────────────────────── │          │ ──▶ DB (snippetId)
+└──────────┘            201                      └──────────┘
+  │                                                   ▲
+  │  2. entrega snippetId a Language                  │ 3. GET /v1/assets/{snippetId}
+  ▼                                                   │
+┌──────────┐                                          │
+│ Language │ ──────────────────────────────────────── ┘
 └──────────┘    lee contenido para procesar
 ```
 
@@ -41,25 +42,24 @@ esperada), **HTTP/REST síncrono** es lo más simple y suficiente.
 ### Contrato que expone Assets
 
 ```
-POST   /v1/assets          → body: contenido      → 201 { "id": "<uuid>" }
-GET    /v1/assets/{id}      →                       → 200 <contenido crudo>
-PUT    /v1/assets/{id}      → body: contenido       → 200
-DELETE /v1/assets/{id}      →                       → 204
+POST   /v1/assets/{snippetId}   → body: contenido   → 201
+GET    /v1/assets/{snippetId}   →                     → 200 <contenido crudo>
+PUT    /v1/assets/{snippetId}   → body: contenido     → 200
+DELETE /v1/assets/{snippetId}   →                     → 204
 ```
 
 ### Flujo de creación (Snippets escribe)
 
-1. Snippets recibe el snippet del usuario.
-2. `POST /v1/assets` con el contenido → `201 { "id": "abc-123" }`.
-3. Snippets persiste `abc-123` en su propia tabla, asociado a la entidad de
-   negocio.
+1. Snippets recibe el snippet del usuario y le asigna un `snippetId` (UUID).
+2. `POST /v1/assets/{snippetId}` con el contenido → `201`.
+3. Assets guarda el blob y registra el `snippetId` en su propia DB. Snippets no
+   almacena ninguna ubicación de blob.
 
 ### Flujo de lectura (Language lee)
 
 1. Language necesita procesar el snippet `X`.
-2. Pregunta a Snippets por el `assetId` de `X` (o lo recibe en el mensaje que lo
-   dispara).
-3. `GET /v1/assets/abc-123` → recibe el contenido crudo.
+2. Obtiene el `snippetId` de `X` (de Snippets o del mensaje que lo dispara).
+3. `GET /v1/assets/{snippetId}` → recibe el contenido crudo.
 4. Lo formatea/lintea/ejecuta.
 
 ### Cómo llamarse entre servicios
@@ -103,9 +103,9 @@ mejor de forma asíncrona.
 Patrón sugerido:
 
 1. Snippets sube el contenido a Assets (REST, como arriba).
-2. Snippets publica un evento `SnippetCreated { snippetId, assetId }` en una cola
+2. Snippets publica un evento `SnippetCreated { snippetId }` en una cola
    (RabbitMQ / Azure Service Bus / Redis Streams).
-3. Language **consume** el evento, hace `GET /v1/assets/{assetId}`, procesa, y
+3. Language **consume** el evento, hace `GET /v1/assets/{snippetId}`, procesa, y
    publica el resultado (`SnippetLinted`, `SnippetFormatted`…).
 
 Ventajas: desacopla a Language de los picos de carga, permite reintentos y no
@@ -114,12 +114,12 @@ bloquea a Snippets mientras se procesa.
 ```
 Snippets ──REST──▶ Assets
    │
-   └──evento SnippetCreated{snippetId, assetId}──▶ [cola] ──▶ Language
-                                                                 │
-                                                     GET /v1/assets/{assetId}
-                                                                 │
-                                                                 ▼
-                                                              Assets
+   └──evento SnippetCreated{snippetId}──▶ [cola] ──▶ Language
+                                                        │
+                                            GET /v1/assets/{snippetId}
+                                                        │
+                                                        ▼
+                                                     Assets
 ```
 
 ---
@@ -130,7 +130,8 @@ Snippets ──REST──▶ Assets
   claro, suficiente.
 - **Disparo de procesamiento (Snippets → Language):** empezar con REST; migrar a
   mensajería asíncrona cuando el procesamiento crezca o se necesiten reintentos.
-- **Dueño del ID:** Snippets. Assets solo entrega IDs; nunca orquesta.
+- **Dueño del índice:** Assets. Assets registra los `snippetId` en su propia DB;
+  Snippets solo hace pedidos y nunca orquesta el almacenamiento.
 - **Autenticación:** red interna + API key para empezar, JWT client-credentials
   si los servicios se exponen.
 - **Descubrimiento:** nombres de servicio en Compose/K8s, URL base por variable
