@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * API REST de Assets. Todas las operaciones se indexan por {@code snippetId}
- * (UUID), que el llamador (Snippets) provee en la ruta.
+ * API REST de Assets. Todas las operaciones se indexan por {@code snippetId} (UUID), que el
+ * llamador (Snippets) provee en la ruta.
  */
 @RestController
 @RequestMapping("/v1/assets")
@@ -59,9 +59,10 @@ public class AssetController {
       return ResponseEntity.notFound().build();
     }
     String contentType = blob.get().contentType();
-    MediaType mediaType = contentType != null
-        ? MediaType.parseMediaType(contentType)
-        : MediaType.APPLICATION_OCTET_STREAM;
+    MediaType mediaType =
+        contentType != null
+            ? MediaType.parseMediaType(contentType)
+            : MediaType.APPLICATION_OCTET_STREAM;
     return ResponseEntity.ok().contentType(mediaType).body(blob.get().content());
   }
 

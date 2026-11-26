@@ -8,8 +8,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Registro que Assets mantiene en su propia DB para localizar el blob de un
- * snippet. La clave es el {@code snippetId} (UUID) que provee el llamador.
+ * Registro que Assets mantiene en su propia DB para localizar el blob de un snippet. La clave es el
+ * {@code snippetId} (UUID) que provee el llamador.
  *
  * <p>No guarda el contenido del snippet, solo su ubicación y metadata.
  */
@@ -43,8 +43,8 @@ public class AssetRecord {
     // Requerido por JPA.
   }
 
-  public AssetRecord(UUID snippetId, String container, String blobName, String contentType,
-      long size) {
+  public AssetRecord(
+      UUID snippetId, String container, String blobName, String contentType, long size) {
     this.snippetId = snippetId;
     this.container = container;
     this.blobName = blobName;
