@@ -13,10 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Lógica de dominio de Assets.
  *
- * <p>Orquesta el almacenamiento del contenido (a través del puerto
- * {@link BlobStorage}, agnóstico al proveedor) y el registro del
- * {@code snippetId} en la DB propia de Assets. No conoce Azure: solo la interfaz
- * {@link BlobStorage}.
+ * <p>Orquesta el almacenamiento del contenido (a través del puerto {@link BlobStorage}, agnóstico
+ * al proveedor) y el registro del {@code snippetId} en la DB propia de Assets. No conoce Azure:
+ * solo la interfaz {@link BlobStorage}.
  */
 @Service
 public class AssetService {
@@ -25,7 +24,9 @@ public class AssetService {
   private final AssetRepository repository;
   private final String container;
 
-  public AssetService(BlobStorage blobStorage, AssetRepository repository,
+  public AssetService(
+      BlobStorage blobStorage,
+      AssetRepository repository,
       @Value("${azure.storage.container}") String container) {
     this.blobStorage = blobStorage;
     this.repository = repository;
@@ -35,8 +36,7 @@ public class AssetService {
   /**
    * Guarda (crea o reemplaza) el contenido asociado a un {@code snippetId}.
    *
-   * @return {@code true} si creó un registro nuevo; {@code false} si reemplazó
-   *     uno existente
+   * @return {@code true} si creó un registro nuevo; {@code false} si reemplazó uno existente
    */
   @Transactional
   public boolean save(UUID snippetId, byte[] content, String contentType) {

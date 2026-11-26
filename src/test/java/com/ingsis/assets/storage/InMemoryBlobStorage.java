@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
 /**
  * Implementación de {@link BlobStorage} en memoria para tests.
  *
- * <p>Demuestra que el servicio es agnóstico al proveedor: sustituye por completo
- * a Azure sin tocar el controlador ni el servicio de dominio.
+ * <p>Demuestra que el servicio es agnóstico al proveedor: sustituye por completo a Azure sin tocar
+ * el controlador ni el servicio de dominio.
  */
 @Component
 @Profile("test")

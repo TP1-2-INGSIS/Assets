@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'jacoco'
 	id 'checkstyle'
+	id 'com.diffplug.spotless' version '8.11.0'
 	id 'org.springframework.boot' version '4.0.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -37,36 +38,71 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
-	finalizedBy jacocoTestReport
+	finalizedBy tasks.named('jacocoTestReport')
 }
 
 jacoco {
 	toolVersion = '0.8.12'
 }
 
-jacocoTestReport {
-	dependsOn test
+// Bootstrap only: nothing to unit test in the Spring Boot entry point.
+def coverageExclusions = ['com/ingsis/assets/AssetsApplication.class']
+
+tasks.named('jacocoTestReport') {
+	dependsOn tasks.named('test')
 	reports {
 		xml.required = true
 		html.required = true
 	}
+	classDirectories.setFrom(files(classDirectories.files.collect {
+		fileTree(dir: it, exclude: coverageExclusions)
+	}))
 }
 
-jacocoTestCoverageVerification {
+// The build fails below 80% line coverage.
+tasks.named('jacocoTestCoverageVerification') {
+	dependsOn tasks.named('test')
+	classDirectories.setFrom(files(classDirectories.files.collect {
+		fileTree(dir: it, exclude: coverageExclusions)
+	}))
 	violationRules {
 		rule {
 			limit {
-				minimum = 0.0
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.80
 			}
 		}
 	}
 }
 
-check.dependsOn jacocoTestCoverageVerification
+// Formatter: google-java-format. `./gradlew spotlessApply` formats; `check` verifies.
+spotless {
+	java {
+		target 'src/**/*.java'
+		googleJavaFormat()
+		removeUnusedImports()
+	}
+}
 
 checkstyle {
 	toolVersion = '10.21.0'
 	configFile = file("config/checkstyle/checkstyle.xml")
 	ignoreFailures = false
 	maxWarnings = 0
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('jacocoTestCoverageVerification')
+}
+
+// Installs the versioned git hooks (.githooks) for this clone.
+tasks.register('installGitHooks', Exec) {
+	commandLine 'git', 'config', 'core.hooksPath', '.githooks'
+	onlyIf { file('.git').exists() }
+	ignoreExitValue = true
+}
+
+tasks.named('compileJava') {
+	dependsOn tasks.named('installGitHooks')
 }

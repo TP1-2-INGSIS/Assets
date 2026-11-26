@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
 /**
  * Implementación de {@link BlobStorage} sobre Azure Blob Storage.
  *
- * <p>Este es el único punto del servicio que conoce el SDK de Azure. El resto
- * del código depende exclusivamente de la interfaz {@link BlobStorage}.
+ * <p>Este es el único punto del servicio que conoce el SDK de Azure. El resto del código depende
+ * exclusivamente de la interfaz {@link BlobStorage}.
  */
 @Component
 @Profile("!test")
