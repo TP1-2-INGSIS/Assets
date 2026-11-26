@@ -9,6 +9,5 @@ import org.springframework.test.context.ActiveProfiles;
 class AssetsApplicationTests {
 
   @Test
-  void contextLoads() {
-  }
+  void contextLoads() {}
 }
